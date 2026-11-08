@@ -2,7 +2,9 @@
 
 A procedural 3D tree generator that runs entirely in the browser (three.js, no build step). Every tree is defined by a small "genome" of sliders: trunk, branching, crown shape, leaves, bark, season, and a seed for the individual.
 
-## Run it
+Hosted at [schaugf.github.io/TreeGen](https://schaugf.github.io/TreeGen)
+
+## Run it Locally
 
 Open `index.html` in a browser. Everything it needs is in `vendor/`.
 
