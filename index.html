@@ -133,6 +133,7 @@ const SCHEMA_BY = Object.fromEntries(SCHEMA.map(s=>[s.key,s]));
 const PRESETS = {
   'Oak':{height:10,trunkThickness:0.036,bareFraction:0.38,apicalDominance:0.2,branchAngle:55,lengthRatio:0.62,crownShape:0.5,curviness:0.4,wobble:0.35,branchDensity:1.1,leafSize:0.45,leafAspect:0.5,lobing:0.6,lobeFreq:3,leafDensity:26,leafColor:'#4a8a2a',barkColor:'#4a3b2e'},
   'Spruce':{height:14,trunkThickness:0.03,bareFraction:0.06,taper:0.9,apicalDominance:1,maxOrder:2,branchDensity:3.5,branchesPerNode:5,phyllotaxis:36,branchAngle:75,angleVar:0.15,lengthRatio:0.3,crownShape:0,subBranching:0.9,curviness:0.08,wobble:0.1,tropism:-0.2,leafType:'needle',leafSize:0.28,leafAspect:0.08,leaflets:7,leafDensity:70,leafPlacement:1,leafAngle:60,leafColor:'#2f6b3a',evergreen:true,barkColor:'#4a3a30'},
+  'Douglas-fir':{height:20,trunkThickness:0.024,bareFraction:0.3,taper:0.85,flare:0.35,apicalDominance:1,maxOrder:2,branchDensity:2.4,branchesPerNode:4,phyllotaxis:50,branchAngle:80,angleVar:0.3,lengthRatio:0.26,crownShape:0.08,subBranching:0.8,curviness:0.15,wobble:0.18,tropism:-0.3,randomness:0.5,leafType:'needle',leafSize:0.3,leafAspect:0.06,leaflets:8,leafArch:0.3,leafDensity:60,leafPlacement:1,leafAngle:65,leafColor:'#3b6b3a',leafVariation:0.3,evergreen:true,barkColor:'#4a3426'},
   'Birch':{height:12,trunkThickness:0.016,bareFraction:0.3,taper:0.8,apicalDominance:0.55,branchesPerNode:1,branchDensity:2.4,subBranching:0.85,branchAngle:35,lengthRatio:0.5,crownShape:0.35,tropism:-0.5,curviness:0.2,leafSize:0.34,leafAspect:0.7,leafShape:0.25,lobing:0.35,lobeFreq:9,leafDensity:45,leafPlacement:0.85,leafColor:'#7bb33a',barkColor:'#e8e4da'},
   'Willow':{height:10,trunkThickness:0.035,bareFraction:0.4,apicalDominance:0.35,branchAngle:38,lengthRatio:0.8,tropism:-1,curviness:0.3,leafSize:0.5,leafAspect:0.1,leafArch:0.6,leafDensity:22,leafColor:'#8fb552',barkColor:'#5a5040'},
   'Palm':{height:8,trunkThickness:0.02,bareFraction:0,taper:0.1,flare:0.3,apicalDominance:1,maxOrder:0,curviness:0.14,wobble:0.05,leafSize:3.2,leafAspect:0.12,leaflets:21,leafArch:0.7,leafAngle:55,leafDensity:2,leafPlacement:0,leafColor:'#3f8a2e',barkColor:'#8a7358'},
@@ -378,7 +379,7 @@ function buildMeshes(st,g,age,leafBudgetScale){
 
   // ----- leaves
   let leafCount=0;
-  const leafAge=smooth((age-0.65)/0.3);
+  const leafAge=1; // leaf size is now driven per-axis by local growth (see bearers)
   const evergreen=g.evergreen;
   const dropFrac=evergreen?0:Math.max(0,(g.season-0.5)*2);
   const autumn=evergreen?0:Math.min(1,g.season*2);
@@ -400,9 +401,19 @@ function buildMeshes(st,g,age,leafBudgetScale){
     const nLeaflets=g.leaflets|0;
     const unitW = needle ? nLeaflets*0.3 : (nLeaflets>1 ? 1+nLeaflets*0.6 : 1);
     // pass 1: count
-    const finals=vis.filter(v=>v.a.leafy && v.g>0.001);
+    // Leaf bearers: terminal axes always; young non-terminal axes carry "sapling" leaves that
+    // fade out as the real crown develops, so early growth is never a bare stick.
+    const sap=1-smooth((age-0.3)/0.35);
+    const finals=[];
+    for(const v of vis){
+      if(v.g<=0.001) continue;
+      const a=v.a;
+      const unfurl=smooth(v.g/0.5);            // leaves emerge as the axis extends
+      if(a.leafy) finals.push({a,g:v.g,w:1,sc:unfurl,minTf:0});
+      else if(sap>0.001) finals.push({a,g:v.g,w:sap,sc:unfurl*(0.5+0.5*sap),minTf:a.order===0?0.3:0});
+    }
     let total=0;
-    for(const {a,g:ga} of finals) total+=a.L*ga*g.leafDensity*unitW;
+    for(const {a,g:ga,w} of finals) total+=a.L*ga*g.leafDensity*unitW*w;
     const CAP=24000*leafBudgetScale;
     const dscale=total>CAP?CAP/total:1;
     const sizeComp=Math.pow(1/dscale,0.3);
@@ -437,21 +448,21 @@ function buildMeshes(st,g,age,leafBudgetScale){
       return out;
     }
 
-    for(const {a,g:ga} of finals){
+    for(const {a,g:ga,w,sc,minTf} of finals){
       const Lvis=a.L*ga;
-      let cnt=Lvis*g.leafDensity*dscale;
+      let cnt=Lvis*g.leafDensity*dscale*w;
       const nl=Math.floor(cnt)+(hash3(a.id,1234,1)<cnt-Math.floor(cnt)?1:0);
       for(let j=0;j<nl;j++){
         const u=hash3(a.id,j,1);
         const tf=1-u*(0.15+0.85*g.leafPlacement);
-        if(tf*a.L>Lvis) continue;
+        if(tf*a.L>Lvis || tf<minTf) continue;
         if(dropFrac>0 && hash3(a.id,j,2)<dropFrac) continue;
         const sm=a_sample(a,tf*a.L);
         tan.set(sm.tx,sm.ty,sm.tz);
         const az=j*137.508*DEG+hash3(a.id,j,3)*0.6;
         const ang=g.leafAngle*DEG*(0.8+0.4*hash3(a.id,j,4));
         branchDir(tan,az,ang,D);
-        const len=leafLen0*(0.75+0.5*hash3(a.id,j,5));
+        const len=leafLen0*sc*(0.75+0.5*hash3(a.id,j,5));
         // color
         const vh=(hash3(a.id,j,6)-0.5), vl=(hash3(a.id,j,7)-0.5);
         let h=baseH+vh*0.1*g.leafVariation, s=baseS, l=clamp(baseL+vl*0.25*g.leafVariation,0.05,0.9);
