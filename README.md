@@ -12,25 +12,25 @@ Open `index.html` in a browser. Everything it needs is in `vendor/`.
 
 Twelve built-in species: Oak, Spruce, Douglas-fir, Birch, Willow, Palm, Acacia, Baobab, Cypress, Juniper, Maple and Sakura. Pick one, then tweak any gene.
 
-![Cycling through every preset, auto-rotating](docs/presets.gif)
+![Cycling through every preset, auto-rotating](docs/presets-v2.gif)
 
 ## Randomize
 
 **Randomize** samples a new genome from plausible ranges, rejecting anything that doesn't look like a tree. Here are twelve draws:
 
-![Twelve randomized trees](docs/random.gif)
+![Twelve randomized trees](docs/random-v2.gif)
 
 ## One species, many individuals
 
 **New seed** keeps the genes and rerolls the individual. Same species, different tree. This is twelve seeds of Oak:
 
-![Twelve seeds of the Oak preset](docs/seeds.gif)
+![Twelve seeds of the Oak preset](docs/seeds-v2.gif)
 
 ## Growth simulation
 
 Drag the **age** slider or press **▶ Grow** to watch a tree grow from sapling to maturity. Birch, Maple and Spruce:
 
-![Birch, maple and spruce growing](docs/growth.gif)
+![Birch, maple and spruce growing](docs/growth-v2.gif)
 
 ## Other controls
 
